@@ -1,0 +1,15 @@
+{
+  "name": "lazybird",
+  "displayName": "Lazybird",
+  "description": "Official skills for Lazybird Studio and the Lazybird Speech API.",
+  "version": "1.0.0",
+  "skills": "./skills/",
+  "author": {
+    "name": "Lazybird",
+    "url": "https://www.lazybird.app"
+  },
+  "homepage": "https://www.lazybird.app",
+  "repository": "https://github.com/lazybirdai/skills",
+  "license": "MIT",
+  "keywords": ["lazybird", "tts", "text-to-speech", "voice", "voice-cloning", "speech"]
+}
