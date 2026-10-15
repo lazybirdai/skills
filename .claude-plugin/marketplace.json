@@ -1,0 +1,23 @@
+{
+  "name": "lazybird",
+  "owner": {
+    "name": "Lazybird",
+    "url": "https://www.lazybird.app"
+  },
+  "metadata": {
+    "description": "Official Lazybird plugins for Claude Code."
+  },
+  "plugins": [
+    {
+      "name": "lazybird",
+      "source": "./",
+      "description": "Build with the Lazybird Speech API: AI voices, text/SSML to MP3, and voice cloning.",
+      "version": "1.1.0",
+      "homepage": "https://www.lazybird.app",
+      "repository": "https://github.com/lazybirdai/skills",
+      "license": "MIT",
+      "keywords": ["lazybird", "tts", "text-to-speech", "voice", "voice-cloning", "speech"],
+      "category": "development"
+    }
+  ]
+}

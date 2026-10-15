@@ -14,11 +14,18 @@ Install a specific skill:
 npx skills add lazybirdai/skills --skill lazybird-api
 ```
 
+Install as a Claude Code plugin:
+
+```text
+/plugin marketplace add lazybirdai/skills
+/plugin install lazybird@lazybird
+```
+
 ## Available Skills
 
 | Skill | Description |
 |---|---|
-| [`lazybird-api`](./skills/lazybird-api) | Build with the Lazybird Speech API: authentication, voices, text/SSML speech generation, settings, and MP3 responses. |
+| [`lazybird-api`](./skills/lazybird-api) | Build with the Lazybird Speech API: API keys by email, voices, text/SSML speech generation, settings, MP3 responses, and cloned voices. |
 
 ## Documentation
 

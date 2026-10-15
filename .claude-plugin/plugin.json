@@ -1,7 +1,7 @@
 {
   "name": "lazybird",
   "description": "Official skills for Lazybird Studio and the Lazybird Speech API.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "Lazybird",
     "url": "https://www.lazybird.app"
