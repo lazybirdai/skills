@@ -8,6 +8,10 @@
   },
   "homepage": "https://www.lazybird.app",
   "repository": "https://github.com/lazybirdai/skills",
+  "documentationUrl": "https://www.lazybird.app/docs/api-reference",
+  "supportUrl": "https://www.lazybird.app/docs",
+  "privacyPolicyUrl": "https://www.lazybird.app/privacy",
+  "termsOfServiceUrl": "https://www.lazybird.app/terms",
   "license": "MIT",
   "keywords": [
     "lazybird",
