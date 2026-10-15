@@ -1,8 +1,8 @@
 {
   "name": "lazybird",
   "displayName": "Lazybird",
-  "description": "Official skills for Lazybird Studio and the Lazybird Speech API.",
-  "version": "1.1.0",
+  "description": "Text-to-speech for AI agents: turn text or SSML into MP3 voiceovers with 500+ voices in 150+ locales, clone a voice from a sample, or design one from a description. Lazybird Speech API.",
+  "version": "1.2.0",
   "skills": "./skills/",
   "author": {
     "name": "Lazybird",
@@ -11,5 +11,50 @@
   "homepage": "https://www.lazybird.app",
   "repository": "https://github.com/lazybirdai/skills",
   "license": "MIT",
-  "keywords": ["lazybird", "tts", "text-to-speech", "voice", "voice-cloning", "speech"]
+  "keywords": [
+    "lazybird",
+    "tts",
+    "text-to-speech",
+    "ai-voice",
+    "voiceover",
+    "narration",
+    "audio",
+    "speech",
+    "voice-cloning",
+    "voice-design",
+    "ssml",
+    "mp3"
+  ],
+  "interface": {
+    "displayName": "Lazybird",
+    "shortDescription": "Text-to-speech for AI agents",
+    "longDescription": "Lazybird turns text or SSML into natural MP3 speech through the Lazybird Speech API. The skill teaches the model the whole workflow: get an API key by email code, search 500+ voices in 150+ locales (built-in, community and your own cloned voices), generate voiceovers and narration with speed, pitch, volume and speaking-style settings, split long scripts into chunks, clone a voice from a short audio sample, and design a new voice from a text description.\n\nGood for developers adding TTS to apps, scripts and agents, and for creators who need voiceovers, narration, audiobook drafts or podcast intros.\n\nLimitations: you need a Lazybird account and API key (the free plan includes 3,000 characters a month and no commercial rights; paid plans add more credits and voice slots). Output is MP3 only. SSML is limited to break and IPA phoneme tags. Only clone voices you have the right to use.",
+    "developerName": "Lazybird",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Generate speech from text or SSML",
+      "Search 500+ voices",
+      "Clone a voice from a sample",
+      "Design a voice from a description"
+    ],
+    "websiteURL": "https://www.lazybird.app",
+    "supportURL": "https://www.lazybird.app/docs",
+    "privacyPolicyURL": "https://www.lazybird.app/privacy",
+    "termsOfServiceURL": "https://www.lazybird.app/terms",
+    "defaultPrompt": [
+      "Turn this paragraph into an MP3 voiceover with a warm US English female voice.",
+      "Find a deep British male narrator voice and generate a 20-second sample.",
+      "Add Lazybird text-to-speech to my Node.js app."
+    ],
+    "brandColor": "#F6360A",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/logo.png"
+  },
+  "extensions": {
+    "com.openai": {
+      "publication": {
+        "release_notes": "Voice design, long-script chunking, voice search recipes, and an error-handling guide."
+      }
+    }
+  }
 }

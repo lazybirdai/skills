@@ -1,8 +1,8 @@
 {
   "name": "lazybird",
   "displayName": "Lazybird",
-  "description": "Official skills for Lazybird Studio and the Lazybird Speech API.",
-  "version": "1.1.0",
+  "description": "Text-to-speech for AI agents: turn text or SSML into MP3 voiceovers with 500+ voices in 150+ locales, clone a voice from a sample, or design one from a description. Lazybird Speech API.",
+  "version": "1.2.0",
   "author": {
     "name": "Lazybird",
     "url": "https://www.lazybird.app"
@@ -10,5 +10,18 @@
   "homepage": "https://www.lazybird.app",
   "repository": "https://github.com/lazybirdai/skills",
   "license": "MIT",
-  "keywords": ["lazybird", "tts", "text-to-speech", "voice", "voice-cloning", "speech"]
+  "keywords": [
+    "lazybird",
+    "tts",
+    "text-to-speech",
+    "ai-voice",
+    "voiceover",
+    "narration",
+    "audio",
+    "speech",
+    "voice-cloning",
+    "voice-design",
+    "ssml",
+    "mp3"
+  ]
 }
