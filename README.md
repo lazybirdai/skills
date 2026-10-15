@@ -41,6 +41,16 @@ New accounts start on the free plan (3,000 characters a month).
 |---|---|
 | [`lazybird-api`](./skills/lazybird-api) | API keys by email code, voice search, text and SSML speech generation, speed/pitch/volume/style settings, long scripts, voice cloning, voice design, plans and error handling. |
 
+## Data and privacy
+
+The skill and plugin store nothing themselves. When your agent uses them, it sends requests directly to `https://api.lazybird.app` over HTTPS, authenticated with your own `LAZYBIRD_API_KEY` (except the email-code login that issues it):
+
+- the text or SSML you ask it to speak, plus voice and audio settings
+- audio samples you provide for voice cloning, and descriptions you give for voice design
+- your email address, only if you ask the agent to get an API key for you by email code
+
+Generated audio comes back to your machine; voice previews and design samples download from `https://cdn.lazybird.app`. The skill contacts no other service. A plan upgrade returns a checkout link that you open yourself. How Lazybird handles this data is described in the [Privacy Policy](https://www.lazybird.app/privacy) and [Terms of Service](https://www.lazybird.app/terms). Questions: support@lazybird.app.
+
 ## Documentation
 
 - API reference: https://www.lazybird.app/docs/api-reference
