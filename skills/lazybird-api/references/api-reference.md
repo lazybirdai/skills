@@ -286,14 +286,16 @@ ffmpeg -f concat -safe 0 -i list.txt -c copy narration.mp3
 POST /voices
 ```
 
-Creates a private cloned voice from a clean 10–30 second recording of one speaker, with no music or background noise. Only clone a voice the user has the right to use.
+Creates a private cloned voice from a clean 10–30 second recording of one speaker, with no music or background noise.
+
+Only clone a voice that is the user's own, or whose speaker agreed to it (see the [Acceptable Use Policy](https://www.lazybird.app/acceptable-use)). Ask the user to confirm this before cloning a real person's voice, then send `rightsConfirmed: true`. It is recorded on the voice. Never clone a voice to impersonate someone or mislead listeners.
 
 Upload a file as multipart (`name` and `sample`, MP3, WAV or OGG, up to 20 MB):
 
 ```bash
 curl -sS -X POST "https://api.lazybird.app/v1/voices" \
   -H "X-API-Key: $LAZYBIRD_API_KEY" \
-  -F "name=Narrator" -F "sample=@sample.wav"
+  -F "name=Narrator" -F "rightsConfirmed=true" -F "sample=@sample.wav"
 ```
 
 Or send JSON with a publicly reachable `sampleUrl`:
@@ -301,10 +303,11 @@ Or send JSON with a publicly reachable `sampleUrl`:
 ```bash
 curl -sS -X POST "https://api.lazybird.app/v1/voices" \
   -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
-  -d '{"name":"Narrator","sampleUrl":"https://example.com/sample.wav"}'
+  -d '{"name":"Narrator","sampleUrl":"https://example.com/sample.wav","rightsConfirmed":true}'
 ```
 
 - Send `sample` or `sampleUrl`, not both.
+- `rightsConfirmed` is optional, but send it once the user has confirmed they may clone the voice. A voice the user designed with `POST /voices/design` is theirs to clone.
 - Returns `201 { "voice": { ... } }`, with `scope: "user"` and `published: false`.
 - Each cloned voice uses a voice slot: 3 on free, 10 on creator, unlimited on pro and max. There is also a monthly creation cap (3 on free, 50 on creator). Hitting either returns `422`. Deleting a voice frees its slot but not the monthly creation.
 - Generate with it like any other voice: `"voiceId": voice.id`. To speak another language, set `settings.locale`.
@@ -391,7 +394,7 @@ Delete:
 DELETE /voices/{voiceId}
 ```
 
-Returns `{ "deleted": true }` and frees the voice slot.
+Returns `{ "deleted": true }` and frees the voice slot. The voice's processed sample, preview clip and avatar are deleted too.
 
 ## Errors
 
