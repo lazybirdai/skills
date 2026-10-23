@@ -4,7 +4,7 @@ description: Generate MP3 speech, voiceovers and narration from text or SSML wit
 license: MIT
 metadata:
   author: Lazybird
-  version: "1.2.1"
+  version: "1.2.2"
   homepage: https://www.lazybird.app
   source: https://github.com/lazybirdai/skills
   documentation: https://www.lazybird.app/docs/api-reference
@@ -30,7 +30,7 @@ Turn text into MP3 speech with 500+ voices, clone a voice from a short sample, o
 curl -sS -X POST "https://api.lazybird.app/v1/generate-speech" \
   -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
   --max-time 300 --fail-with-body -o speech.mp3 \
-  --data '{"voiceId":"msa.en-US.SerenaMultilingual","text":"Hello from Lazybird."}'
+  --data '{"voiceId":"tgJ2Hes6DauwTg8kFrRPLN","text":"Hello from Lazybird."}'
 ```
 
 ## Critical rules
@@ -41,7 +41,7 @@ curl -sS -X POST "https://api.lazybird.app/v1/generate-speech" \
 - SSML supports only `<speak>`, `<break time="500ms|2s"/>` (max 60s) and `<phoneme alphabet="ipa" ph="...">word</phoneme>`. Any other tag (`<prosody>`, `<emphasis>`, `<say-as>`, `<voice>`...) is a `400`. Use `settings` for speed, pitch and volume instead. Escape `&`, `<`, `>` in text, and escape quotes inside JSON.
 - `settings.style` only works with a value from the voice's `styleList` (most voices have none). Other values are silently ignored.
 - For another language, use a voice whose `language` matches, or a multilingual or cloned voice with `settings.locale` (e.g. `es-ES`).
-- Treat voice `id`s as opaque. Built-in ids look like `msa.en-US.Jenny`, while community and cloned voices have random ids.
+- Voice `id`s are opaque strings, such as `tgJ2Hes6DauwTg8kFrRPLN`. Copy them from `GET /voices`; never build or guess one.
 - `/personal-voices` is deprecated. Use the `/voices` endpoints.
 - Before spending a lot of credits (long scripts, batches), check `GET /me` → `credits.remaining`.
 
@@ -53,9 +53,9 @@ curl -sS https://api.lazybird.app/v1/voices -o voices.json
 jq -r '.[] | select(.language=="en-GB" and .gender=="male") | [.id,.displayName] | @tsv' voices.json
 # Voices that can speak Japanese (native or via settings.locale)
 jq -r '.[] | select(.language=="ja-JP" or ((.secondaryLocaleList//[])|index("ja-JP"))) | .id' voices.json
-# Character / celebrity voices, by name or description
-jq -r '.[] | select(.labels|index("Character")) | [.id,.displayName,.description] | @tsv' voices.json
-jq -r '.[] | select(.displayName|test("serena";"i")) | .id' voices.json
+# Narrator voices, and a voice by name
+jq -r '.[] | select(.labels|index("Narrator")) | [.id,.displayName,.description] | @tsv' voices.json
+jq -r '.[] | select(.displayName|test("elyssia";"i")) | .id' voices.json
 # Voices with speaking styles
 jq -r '.[] | select((.styleList//[])|length>0) | [.id,(.styleList|join(","))] | @tsv' voices.json
 ```

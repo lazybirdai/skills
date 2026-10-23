@@ -110,37 +110,35 @@ GET /voices?owner=me
 curl -sS https://api.lazybird.app/v1/voices -o voices.json
 jq -r '.[] | select(.language=="en-US" and .gender=="female") | [.id,.displayName,(.styleList//[]|join(","))] | @tsv' voices.json
 jq -r '.[] | select(.language=="es-MX" or ((.secondaryLocaleList//[])|index("es-MX"))) | .id' voices.json
-jq -r '.[] | select(.labels|index("Character")) | [.id,.displayName,.description] | @tsv' voices.json
+jq -r '.[] | select(.labels|index("Narrator")) | [.id,.displayName,.description] | @tsv' voices.json
 ```
 
 ### Voice object
 
 ```json
 {
-  "id": "msa.en-US.SerenaMultilingual",
-  "displayName": "Serena",
-  "description": "",
+  "id": "tgJ2Hes6DauwTg8kFrRPLN",
+  "displayName": "Elyssia",
+  "description": "YouTube Host",
   "language": "en-US",
   "gender": "female",
-  "labels": [],
-  "languageGroup": "multilingual",
-  "secondaryLocaleList": ["es-ES", "fr-FR", "ja-JP"],
-  "styleList": ["empathetic", "excited", "friendly", "shy", "serious", "relieved", "sad"],
-  "previewText": "Hello, my name is Serena. I can speak all kinds of languages.",
-  "previewUrl": "https://.../preview.mp3",
-  "avatar": "/images/avatars/msa.en-US.Serena3.jpg",
-  "scope": "global",
-  "published": true
+  "labels": ["News", "Narrator", "Female", "Young Adult"],
+  "secondaryLocaleList": ["de-DE", "es-ES", "fr-FR", "ja-JP"],
+  "styleList": [],
+  "previewText": "Hey everyone, I'm Elyssia. Today we're looking at a story you've probably heard wrong, so let's get into it.",
+  "previewUrl": "https://cdn.lazybird.app/.../preview.mp3",
+  "avatar": "https://cdn.lazybird.app/.../avatar.jpg",
+  "scope": "global"
 }
 ```
 
 | Field | Notes |
 |---|---|
-| `id` | Pass as `voiceId`. Treat it as opaque. Built-in voices look like `msa.<locale>.<Name>`, while community and cloned voices have random ids. Older cloned voices may also have a `slug` starting with `pv:`, which works anywhere a voice id does. |
-| `displayName`, `description` | Name, plus the character, show or use case for community voices |
+| `id` | Pass as `voiceId`. An opaque string: copy it, never build or guess one. |
+| `displayName`, `description` | Name, plus the voice's role or use case |
 | `language` | Primary BCP-47 locale, e.g. `en-US`, `ja-JP` (150+ locales) |
 | `gender` | `female`, `male` or `unknown` |
-| `labels` | Tags such as `Character`, `Celebrity`, `Narrator`, `Female`, `Child`. Ignore entries of the form `key=value`, which are internal metadata. |
+| `labels` | Tags such as `Narrator`, `Podcast`, `Female`, `Young Adult`. Ignore entries of the form `key=value`, which are internal metadata. |
 | `languageGroup` | `multilingual` for voices that speak many languages |
 | `secondaryLocaleList` | Other locales the voice can speak through `settings.locale` |
 | `styleList` | Values accepted by `settings.style`. It's empty for most voices. |
@@ -193,7 +191,7 @@ curl -sS -X POST "https://api.lazybird.app/v1/generate-speech" \
   -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
   --max-time 300 --fail-with-body -o speech.mp3 \
   --data '{
-    "voiceId": "msa.en-US.SerenaMultilingual",
+    "voiceId": "tgJ2Hes6DauwTg8kFrRPLN",
     "text": "Hola, este audio usa una configuración regional en español.",
     "settings": { "locale": "es-ES", "speed": 0.95 }
   }'
@@ -215,7 +213,7 @@ The document must be valid XML: escape `&` as `&amp;`, and `<` and `>` in text a
 
 ```json
 {
-  "voiceId": "msa.en-US.SerenaMultilingual",
+  "voiceId": "tgJ2Hes6DauwTg8kFrRPLN",
   "ssml": "<speak>Welcome back. <break time=\"700ms\"/> Today we talk about <phoneme alphabet=\"ipa\" ph=\"ˈkæʃ\">cache</phoneme> design.</speak>"
 }
 ```
@@ -243,7 +241,7 @@ def lazybird_tts(text: str, voice_id: str, out_path: str, settings: dict | None 
     with urllib.request.urlopen(req, timeout=300) as resp, open(out_path, "wb") as f:
         f.write(resp.read())
 
-lazybird_tts("Hello from Lazybird.", "msa.en-US.SerenaMultilingual", "hello.mp3")
+lazybird_tts("Hello from Lazybird.", "tgJ2Hes6DauwTg8kFrRPLN", "hello.mp3")
 ```
 
 Node.js 18+:
@@ -262,7 +260,7 @@ async function lazybirdTts(text, voiceId, outPath, settings) {
   await writeFile(outPath, Buffer.from(await res.arrayBuffer()));
 }
 
-await lazybirdTts("Hello from Lazybird.", "msa.en-US.SerenaMultilingual", "hello.mp3");
+await lazybirdTts("Hello from Lazybird.", "tgJ2Hes6DauwTg8kFrRPLN", "hello.mp3");
 ```
 
 For browser apps, call your own backend endpoint, which calls Lazybird with the key. Never call Lazybird from the browser with the key.
@@ -357,7 +355,7 @@ curl -sS -X PATCH "https://api.lazybird.app/v1/voices/abc123" \
 | Field | Notes |
 |---|---|
 | `name` | Display name |
-| `description` | Short text on the voice card, such as the character or show |
+| `description` | Short text on the voice card, such as the voice's role or use case |
 | `labels` | Replaces all labels. Allowed: `Male`, `Female`, `Child`, `Young Adult`, `Adult`, `Elder`, `Narrator`, `Audiobook`, `Podcast`, `Character`, `Celebrity`, `Streamer` |
 | `language` | Locale such as `en-US` or `es-MX`. `""` clears it. Changing it clears the preview clip. |
 | `avatarUrl` | Public PNG, JPEG or WebP URL |
