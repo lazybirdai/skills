@@ -4,7 +4,7 @@ description: Generate MP3 speech, voiceovers and narration from text or SSML wit
 license: MIT
 metadata:
   author: Lazybird
-  version: "1.2.2"
+  version: "1.3.0"
   homepage: https://www.lazybird.app
   source: https://github.com/lazybirdai/skills
   documentation: https://www.lazybird.app/docs/api-reference
@@ -14,7 +14,7 @@ metadata:
 
 Turn text into MP3 speech with 500+ voices, clone a voice from a short sample, or design one from a description. One credit = one character of input text.
 
-- Base URL: `https://api.lazybird.app/v1`
+- Base URL: `https://api.lazybird.app/v2`
 - Auth header: `X-API-Key: $LAZYBIRD_API_KEY` (query `?api_key=` only when headers are impossible)
 - OpenAPI 3.1: https://www.lazybird.app/openapi.json · Agent docs: https://api.lazybird.app/llms.txt
 
@@ -22,12 +22,12 @@ Turn text into MP3 speech with 500+ voices, clone a voice from a short sample, o
 
 1. **Get a key.** Use `$LAZYBIRD_API_KEY` if it is set. If not, ask the user for their email, then:
    `POST /auth/request-code {"email"}` → user reads the 6-digit code from their inbox → `POST /auth/verify-code {"email","code","keyName"}` returns `{ apiKey, isNewAccount }`. New accounts start on the free plan. Store the key in an env var or secret store, never in code.
-2. **Pick a voice.** `GET /voices` is public and returns the whole library (~530 voices, ~470 KB). Save it to a file and filter it; never print the raw list into context. See "Finding a voice" below.
+2. **Pick a voice.** `GET /voices` searches and filters the library on the server and returns up to 100 voices per page. Ask for what you need (`q`, `language`, `gender`, `labels`) instead of paging through everything, and print only the fields you need. See "Finding a voice" below.
 3. **Generate.** `POST /generate-speech {"voiceId","text"}` returns raw `audio/mpeg` bytes. Write them to a file. Long text takes time: allow a 120+ second timeout.
 4. **On errors,** read the JSON `error` message and follow the error table below.
 
 ```bash
-curl -sS -X POST "https://api.lazybird.app/v1/generate-speech" \
+curl -sS -X POST "https://api.lazybird.app/v2/generate-speech" \
   -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
   --max-time 300 --fail-with-body -o speech.mp3 \
   --data '{"voiceId":"tgJ2Hes6DauwTg8kFrRPLN","text":"Hello from Lazybird."}'
@@ -41,26 +41,33 @@ curl -sS -X POST "https://api.lazybird.app/v1/generate-speech" \
 - SSML supports only `<speak>`, `<break time="500ms|2s"/>` (max 60s) and `<phoneme alphabet="ipa" ph="...">word</phoneme>`. Any other tag (`<prosody>`, `<emphasis>`, `<say-as>`, `<voice>`...) is a `400`. Use `settings` for speed, pitch and volume instead. Escape `&`, `<`, `>` in text, and escape quotes inside JSON.
 - `settings.style` only works with a value from the voice's `styleList` (most voices have none). Other values are silently ignored.
 - For another language, use a voice whose `language` matches, or a multilingual or cloned voice with `settings.locale` (e.g. `es-ES`).
-- Voice `id`s are opaque strings, such as `tgJ2Hes6DauwTg8kFrRPLN`. Copy them from `GET /voices`; never build or guess one.
+- Treat voice `id`s as opaque: copy them from `GET /voices`, never build them from a name.
 - `/personal-voices` is deprecated. Use the `/voices` endpoints.
 - Before spending a lot of credits (long scripts, batches), check `GET /me` → `credits.remaining`.
 
 ## Finding a voice
 
+`GET /voices` is public (send the key to also get your own voices). It returns `{ myVoices, library, totals }`: your own voices and the public library, each up to `limit` (default and max 100), in the recommended order.
+
 ```bash
-curl -sS https://api.lazybird.app/v1/voices -o voices.json
+API=https://api.lazybird.app/v2
 # English (UK) male voices
-jq -r '.[] | select(.language=="en-GB" and .gender=="male") | [.id,.displayName] | @tsv' voices.json
-# Voices that can speak Japanese (native or via settings.locale)
-jq -r '.[] | select(.language=="ja-JP" or ((.secondaryLocaleList//[])|index("ja-JP"))) | .id' voices.json
-# Narrator voices, and a voice by name
-jq -r '.[] | select(.labels|index("Narrator")) | [.id,.displayName,.description] | @tsv' voices.json
-jq -r '.[] | select(.displayName|test("elyssia";"i")) | .id' voices.json
-# Voices with speaking styles
-jq -r '.[] | select((.styleList//[])|length>0) | [.id,(.styleList|join(","))] | @tsv' voices.json
+curl -sS "$API/voices?language=en-GB&gender=male" | jq -r '.library[] | [.id,.displayName] | @tsv'
+# Every English locale, female
+curl -sS "$API/voices?language=en&gender=female" | jq -r '.library[] | [.id,.displayName,.language] | @tsv'
+# Narrator voices
+curl -sS "$API/voices?labels=Narrator" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
+# Search names, descriptions and labels
+curl -sS "$API/voices?q=calm" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
+# Voices with speaking styles (on one page)
+curl -sS "$API/voices?language=en-US" | jq -r '.library[] | select((.styleList//[])|length>0) | [.id,(.styleList|join(","))] | @tsv'
+# Your own (cloned) voices
+curl -sS "$API/voices?section=myVoices" -H "X-API-Key: $LAZYBIRD_API_KEY" | jq -r '.myVoices[] | [.id,.displayName] | @tsv'
 ```
 
-Useful fields are `id`, `displayName`, `description`, `language` (primary locale), `gender` (`female`, `male` or `unknown`), `labels`, `styleList`, `secondaryLocaleList`, `previewUrl` (an MP3 to audition), and `scope` (`global` built-in, `community` published by users, `user` your own). Ignore labels of the form `key=value`, which are internal metadata. Multilingual voices have `languageGroup: "multilingual"`. `GET /voices?owner=me` lists only the caller's own voices.
+Filters: `q` (search text), `language` (a locale like `ja-JP`, or `ja` for all its locales), `gender`, `labels` (comma-separated, all must match), `sort` (`recommended` default, `name`, `usage`, `recent`). To page, add `section=library` (or `myVoices`) and pass each response's `nextCursor` back as `cursor` with the same filters; the last page has none. Many voices can also speak the locales in their `secondaryLocaleList` through `settings.locale`.
+
+Useful fields are `id`, `displayName`, `description`, `language` (primary locale), `gender` (`female`, `male` or `unknown`), `labels`, `styleList`, `secondaryLocaleList`, `previewUrl` (an MP3 to audition), and `scope` (`global` built-in, `community` published by users, `user` your own). Ignore labels of the form `key=value`, which are internal metadata. Multilingual voices have `languageGroup: "multilingual"`.
 
 ## Speech settings
 
@@ -79,8 +86,9 @@ There is no hard length cap, but time grows with length: about 3,000 characters 
 
 ## Account and billing
 
-- `GET /me` → `{ plan: { tier, isPaid }, credits: { used, limit, remaining, resetsAt } }`. The free plan has 3,000 credits a month and no commercial rights. Paid plans: `creator`, `pro`, `max`.
+- `GET /me` → `{ plan: { tier, isPaid }, credits: { used, limit, remaining, resetsAt } }`. The free plan has 10,000 credits a month and no commercial rights. Paid plans: `creator`, `pro`, `max`.
 - `POST /checkout {"plan":"creator|pro|max","interval":"monthly|yearly"}` → `{ checkoutUrl }`. Give the URL to the user to pay in a browser. The same key gets the new plan once payment completes.
+- `POST /checkout {"creditsUsd":10}` → one-time extra credits that never expire, bought in whole dollars ($10–$1,000): $30 per 1M with no plan, $20 on Creator, $5 on Pro/Max.
 
 ## Errors
 

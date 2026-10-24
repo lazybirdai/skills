@@ -2,7 +2,7 @@
 
 The Lazybird Speech API turns text or SSML into MP3 speech. It also clones voices from audio samples, designs voices from text descriptions, and manages and publishes your voices.
 
-- Base URL: `https://api.lazybird.app/v1`
+- Base URL: `https://api.lazybird.app/v2` (`/v1` still works; it differs only in `GET /voices`, which there returns one unpaged list of the first 1,000 library voices)
 - OpenAPI 3.1 spec: https://www.lazybird.app/openapi.json
 - Human docs: https://www.lazybird.app/docs/api-reference
 - Usage draws from the same monthly credits as Lazybird Studio: one credit per character of input text.
@@ -40,7 +40,7 @@ Users create keys in Lazybird Studio settings, or get one through the email flow
 Use this when the user has no key. It needs only an email address and no web login. Ask the user which email to use.
 
 ```bash
-curl -sS -X POST "https://api.lazybird.app/v1/auth/request-code" \
+curl -sS -X POST "https://api.lazybird.app/v2/auth/request-code" \
   -H "Content-Type: application/json" \
   -d '{"email":"you@example.com"}'
 ```
@@ -52,7 +52,7 @@ curl -sS -X POST "https://api.lazybird.app/v1/auth/request-code" \
 The user reads the 6-digit code from their inbox. You can read it yourself if you have inbox access. Then:
 
 ```bash
-curl -sS -X POST "https://api.lazybird.app/v1/auth/verify-code" \
+curl -sS -X POST "https://api.lazybird.app/v2/auth/verify-code" \
   -H "Content-Type: application/json" \
   -d '{"email":"you@example.com","code":"123456","keyName":"my agent"}'
 ```
@@ -65,7 +65,7 @@ curl -sS -X POST "https://api.lazybird.app/v1/auth/verify-code" \
 ## Account and upgrade
 
 ```bash
-curl -sS "https://api.lazybird.app/v1/me" -H "X-API-Key: $LAZYBIRD_API_KEY"
+curl -sS "https://api.lazybird.app/v2/me" -H "X-API-Key: $LAZYBIRD_API_KEY"
 ```
 
 ```json
@@ -73,22 +73,34 @@ curl -sS "https://api.lazybird.app/v1/me" -H "X-API-Key: $LAZYBIRD_API_KEY"
   "userId": "abc",
   "email": "you@example.com",
   "plan": { "tier": "free", "name": "Free", "isPaid": false },
-  "credits": { "used": 1200, "limit": 3000, "extraCredits": 0, "remaining": 1800, "resetsAt": "2026-11-01T00:00:00.000Z" }
+  "credits": { "used": 1200, "limit": 10000, "extraCredits": 0, "remaining": 8800, "resetsAt": "2026-11-01T00:00:00.000Z" }
 }
 ```
 
 - `tier` is `free`, `creator`, `pro`, `max`, or `legacy` for older plans.
-- The free plan has 3,000 credits a month and no commercial usage rights. Paid plans include commercial rights.
+- The free plan has 10,000 credits a month and no commercial usage rights. Paid plans include commercial rights.
+- 1 credit = 1 character. Monthly plan credits are used first, then purchased `extraCredits`, which never expire.
 
 Upgrade:
 
 ```bash
-curl -sS -X POST "https://api.lazybird.app/v1/checkout" \
+curl -sS -X POST "https://api.lazybird.app/v2/checkout" \
   -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
   -d '{"plan":"pro","interval":"monthly"}'
 ```
 
 - Returns `{ "checkoutUrl": "https://..." }`. `plan` is `creator`, `pro` or `max`, and `interval` is `monthly` or `yearly`.
+
+Buy extra credits once, with or without a plan:
+
+```bash
+curl -sS -X POST "https://api.lazybird.app/v2/checkout" \
+  -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
+  -d '{"creditsUsd":10}'
+```
+
+- Price per 1M credits: $30 with no plan, $20 on Creator, $5 on Pro or Max. Pay any whole-dollar amount from $10 to $1,000.
+- Pay-as-you-go credits without a plan are for personal use; plans include commercial rights.
 - Give the URL to the user to pay in a browser. The plan applies as soon as payment completes, and the same key keeps working.
 - Pricing: https://www.lazybird.app/pricing
 
@@ -98,20 +110,34 @@ curl -sS -X POST "https://api.lazybird.app/v1/checkout" \
 
 ```http
 GET /voices
-GET /voices?owner=me
 ```
 
-- `GET /voices` is public and returns the full library as a JSON array: about 530 voices, about 470 KB.
-- `?owner=me` needs a key and returns only the caller's own voices (private clones and voices they published).
-- `owner` accepts only `me`.
-- There is no server-side search. Download the list once, cache it, and filter it locally:
+- Public: no key needed. With a key, your own voices come back too.
+- Returns `{ "myVoices": [...], "library": [...], "totals": { "myVoices": 0, "library": 580 } }`: your own voices (private clones and voices you published) and the public library, each up to `limit` voices, in the recommended order. `totals` counts the matching voices in each section.
+- Filter and search on the server instead of downloading the library:
+
+| Parameter | Notes |
+|---|---|
+| `q` | Search text, matched against voice names, descriptions and labels |
+| `language` | A locale such as `en-US`, or a language such as `en` for all of its locales. Matches the primary locale only. |
+| `gender` | `female` or `male` |
+| `labels` | Comma-separated; a voice must carry all of them |
+| `sort` | `recommended` (default, also when searching), `name`, `usage` or `recent` |
+| `limit` | Voices per section, 1 to 100. Default 100. |
+| `section` | `myVoices` or `library`: return only that section, one page at a time |
+| `cursor` | The previous page's `nextCursor`, together with `section` |
 
 ```bash
-curl -sS https://api.lazybird.app/v1/voices -o voices.json
-jq -r '.[] | select(.language=="en-US" and .gender=="female") | [.id,.displayName,(.styleList//[]|join(","))] | @tsv' voices.json
-jq -r '.[] | select(.language=="es-MX" or ((.secondaryLocaleList//[])|index("es-MX"))) | .id' voices.json
-jq -r '.[] | select(.labels|index("Narrator")) | [.id,.displayName,.description] | @tsv' voices.json
+API=https://api.lazybird.app/v2
+curl -sS "$API/voices?language=en-US&gender=female" | jq -r '.library[] | [.id,.displayName,(.styleList//[]|join(","))] | @tsv'
+curl -sS "$API/voices?labels=Narrator" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
+curl -sS "$API/voices?q=calm" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
+curl -sS "$API/voices?section=myVoices" -H "X-API-Key: $LAZYBIRD_API_KEY" | jq -r '.myVoices[] | [.id,.displayName] | @tsv'
 ```
+
+Paging: add `section`. While more voices match, the response has `nextCursor`; send it back as `cursor` with the same filters and sort. The last page has none. A cursor whose voice was removed returns `400`; start again from the first page.
+
+Multilingual voices can also speak locales outside their primary `language` (see `secondaryLocaleList`), so for a language without many native voices, also try a multilingual voice with `settings.locale`.
 
 ### Voice object
 
@@ -125,16 +151,17 @@ jq -r '.[] | select(.labels|index("Narrator")) | [.id,.displayName,.description]
   "labels": ["News", "Narrator", "Female", "Young Adult"],
   "secondaryLocaleList": ["de-DE", "es-ES", "fr-FR", "ja-JP"],
   "styleList": [],
-  "previewText": "Hey everyone, I'm Elyssia. Today we're looking at a story you've probably heard wrong, so let's get into it.",
+  "previewText": "Hey everyone, I'm Elyssia.",
   "previewUrl": "https://cdn.lazybird.app/.../preview.mp3",
   "avatar": "https://cdn.lazybird.app/.../avatar.jpg",
-  "scope": "global"
+  "scope": "global",
+  "published": false
 }
 ```
 
 | Field | Notes |
 |---|---|
-| `id` | Pass as `voiceId`. An opaque string: copy it, never build or guess one. |
+| `id` | Pass as `voiceId`. Treat it as opaque: copy it from `GET /voices`, never build it from a name. Voices cloned before the unified voice list also accept their legacy `pv:` id. |
 | `displayName`, `description` | Name, plus the voice's role or use case |
 | `language` | Primary BCP-47 locale, e.g. `en-US`, `ja-JP` (150+ locales) |
 | `gender` | `female`, `male` or `unknown` |
@@ -145,7 +172,7 @@ jq -r '.[] | select(.labels|index("Narrator")) | [.id,.displayName,.description]
 | `previewUrl` | MP3 sample to audition the voice |
 | `avatar` | Image URL. Relative paths are relative to `https://www.lazybird.app`. |
 | `scope` | `global` (built-in), `community` (published by a user) or `user` (your private voice) |
-| `published`, `mine` | Public-library flag, and whether the caller owns the voice |
+| `published`, `mine` | Whether a user published the voice to the library, and whether the caller owns it |
 
 A published voice also has a public page: `https://www.lazybird.app/voices/{id}`.
 
@@ -187,7 +214,7 @@ Settings (all optional):
 Success: `200`, `Content-Type: audio/mpeg`, body = MP3 bytes. Failure: a JSON error (see [Errors](#errors)). Always check the status before writing the body to a `.mp3` file.
 
 ```bash
-curl -sS -X POST "https://api.lazybird.app/v1/generate-speech" \
+curl -sS -X POST "https://api.lazybird.app/v2/generate-speech" \
   -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
   --max-time 300 --fail-with-body -o speech.mp3 \
   --data '{
@@ -232,7 +259,7 @@ def lazybird_tts(text: str, voice_id: str, out_path: str, settings: dict | None 
     if settings:
         body["settings"] = settings
     req = urllib.request.Request(
-        "https://api.lazybird.app/v1/generate-speech",
+        "https://api.lazybird.app/v2/generate-speech",
         data=json.dumps(body).encode(),
         headers={"X-API-Key": os.environ["LAZYBIRD_API_KEY"], "Content-Type": "application/json"},
         method="POST",
@@ -250,7 +277,7 @@ Node.js 18+:
 import { writeFile } from "node:fs/promises";
 
 async function lazybirdTts(text, voiceId, outPath, settings) {
-  const res = await fetch("https://api.lazybird.app/v1/generate-speech", {
+  const res = await fetch("https://api.lazybird.app/v2/generate-speech", {
     method: "POST",
     headers: { "X-API-Key": process.env.LAZYBIRD_API_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({ voiceId, text, settings }),
@@ -291,7 +318,7 @@ Only clone a voice that is the user's own, or whose speaker agreed to it (see th
 Upload a file as multipart (`name` and `sample`, MP3, WAV or OGG, up to 20 MB):
 
 ```bash
-curl -sS -X POST "https://api.lazybird.app/v1/voices" \
+curl -sS -X POST "https://api.lazybird.app/v2/voices" \
   -H "X-API-Key: $LAZYBIRD_API_KEY" \
   -F "name=Narrator" -F "rightsConfirmed=true" -F "sample=@sample.wav"
 ```
@@ -299,7 +326,7 @@ curl -sS -X POST "https://api.lazybird.app/v1/voices" \
 Or send JSON with a publicly reachable `sampleUrl`:
 
 ```bash
-curl -sS -X POST "https://api.lazybird.app/v1/voices" \
+curl -sS -X POST "https://api.lazybird.app/v2/voices" \
   -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
   -d '{"name":"Narrator","sampleUrl":"https://example.com/sample.wav","rightsConfirmed":true}'
 ```
@@ -326,7 +353,7 @@ Generates a brand-new voice from a description of who is speaking, and returns a
 | `seed` | No | 0–2147483647. Omit it for a new random voice. |
 
 ```bash
-curl -sS -X POST "https://api.lazybird.app/v1/voices/design" \
+curl -sS -X POST "https://api.lazybird.app/v2/voices/design" \
   -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
   -d '{"description":"A calm, deep-voiced middle-aged British man, warm documentary narrator","text":"Deep in the forest, the old oak has stood for three hundred years."}'
 ```
@@ -347,7 +374,7 @@ These work on your own voices only.
 Edit: send only the fields to change.
 
 ```bash
-curl -sS -X PATCH "https://api.lazybird.app/v1/voices/abc123" \
+curl -sS -X PATCH "https://api.lazybird.app/v2/voices/abc123" \
   -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
   -d '{"name":"Narrator","description":"Deep, calm narrator","labels":["Narrator","Male"],"language":"en-US","avatarUrl":"https://example.com/avatar.png"}'
 ```
@@ -356,7 +383,7 @@ curl -sS -X PATCH "https://api.lazybird.app/v1/voices/abc123" \
 |---|---|
 | `name` | Display name |
 | `description` | Short text on the voice card, such as the voice's role or use case |
-| `labels` | Replaces all labels. Allowed: `Male`, `Female`, `Child`, `Young Adult`, `Adult`, `Elder`, `Narrator`, `Audiobook`, `Podcast`, `Character`, `Celebrity`, `Streamer` |
+| `labels` | Replaces all labels. Allowed: `Male`, `Female`, `Child`, `Young Adult`, `Adult`, `Elder`, `Narrator`, `Audiobook`, `Podcast`, `Character`, `Celebrity`, `Streamer`, `Advertising`, `Anime`, `ASMR`, `Customer Service`, `Documentary`, `Education`, `Horror`, `Kids`, `Meditation`, `News`, `Sleep`, `Storytelling`, `Trailer`, `Calm`, `Deep`, `Energetic` |
 | `language` | Locale such as `en-US` or `es-MX`. `""` clears it. Changing it clears the preview clip. |
 | `avatarUrl` | Public PNG, JPEG or WebP URL |
 
@@ -414,11 +441,11 @@ Errors are JSON:
 
 ## Deprecated: /personal-voices
 
-`/personal-voices` still works but is deprecated. Its responses carry `Deprecation` and `Link: </v1/voices>; rel="successor-version"` headers. Don't use it in new code:
+`/personal-voices` still works but is deprecated. Its responses carry `Deprecation` and `Link: </v2/voices>; rel="successor-version"` headers. Don't use it in new code:
 
 | Deprecated | Use instead |
 |---|---|
-| `GET /personal-voices` | `GET /voices?owner=me` |
+| `GET /personal-voices` | `GET /voices?section=myVoices` |
 | `POST /personal-voices` | `POST /voices` |
 | `DELETE /personal-voices/{voiceId}` | `DELETE /voices/{voiceId}` |
 | `POST /personal-voices/{voiceId}/generate-speech` | `POST /generate-speech` with `voiceId` |
