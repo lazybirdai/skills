@@ -2,7 +2,7 @@
 
 The Lazybird Speech API turns text or SSML into MP3 speech. It also clones voices from audio samples, designs voices from text descriptions, and manages and publishes your voices.
 
-- Base URL: `https://api.lazybird.app/v2` (`/v1` still works; it differs only in `GET /voices`, which there returns one unpaged list of the first 1,000 library voices)
+- Base URL: `https://api.lazybird.app/v2` (`/v1` is frozen for existing integrations: it keeps the older voice object, one unpaged list of the first 1,000 library voices and the deprecated `/personal-voices` endpoints. Use `/v2` in new code.)
 - OpenAPI 3.1 spec: https://www.lazybird.app/openapi.json
 - Human docs: https://www.lazybird.app/docs/api-reference
 - Usage draws from the same monthly credits as Lazybird Studio: one credit per character of input text.
@@ -21,7 +21,6 @@ The Lazybird Speech API turns text or SSML into MP3 speech. It also clones voice
 - [Design a voice](#design-a-voice)
 - [Edit, publish, preview and delete a voice](#edit-publish-preview-and-delete-a-voice)
 - [Errors](#errors)
-- [Deprecated: /personal-voices](#deprecated-personal-voices)
 
 ## Authentication
 
@@ -113,16 +112,16 @@ GET /voices
 ```
 
 - Public: no key needed. With a key, your own voices come back too.
-- Returns `{ "myVoices": [...], "library": [...], "totals": { "myVoices": 0, "library": 580 } }`: your own voices (private clones and voices you published) and the public library, each up to `limit` voices, in the recommended order. `totals` counts the matching voices in each section.
+- Returns `{ "myVoices": [...], "library": [...], "totals": { "myVoices": 0, "library": 580 } }`: your voices (private clones, voices you published and the clones teammates shared with your team; your own carry `"mine": true`) and the public library without the voices already in `myVoices`, each up to `limit` voices. `totals` counts the matching voices in each section.
 - Filter and search on the server instead of downloading the library:
 
 | Parameter | Notes |
 |---|---|
-| `q` | Search text, matched against voice names, descriptions and labels |
+| `q` | Search words; a voice matches when each word appears in its name, description or labels |
 | `language` | A locale such as `en-US`, or a language such as `en` for all of its locales. Matches the primary locale only. |
 | `gender` | `female` or `male` |
 | `labels` | Comma-separated; a voice must carry all of them |
-| `sort` | `recommended` (default, also when searching), `name`, `usage` or `recent` |
+| `sort` | `recommended` (default, also when searching), `trending` (most uses in the last 7 days), `usage` (most uses of all time), `recent` (newest first) or `name` (A to Z) |
 | `limit` | Voices per section, 1 to 100. Default 100. |
 | `section` | `myVoices` or `library`: return only that section, one page at a time |
 | `cursor` | The previous page's `nextCursor`, together with `section` |
@@ -130,14 +129,16 @@ GET /voices
 ```bash
 API=https://api.lazybird.app/v2
 curl -sS "$API/voices?language=en-US&gender=female" | jq -r '.library[] | [.id,.displayName,(.styleList//[]|join(","))] | @tsv'
-curl -sS "$API/voices?labels=Narrator" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
-curl -sS "$API/voices?q=calm" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
+curl -sS "$API/voices?labels=Character" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
+curl -sS "$API/voices?q=narrator" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
 curl -sS "$API/voices?section=myVoices" -H "X-API-Key: $LAZYBIRD_API_KEY" | jq -r '.myVoices[] | [.id,.displayName] | @tsv'
 ```
 
-Paging: add `section`. While more voices match, the response has `nextCursor`; send it back as `cursor` with the same filters and sort. The last page has none. A cursor whose voice was removed returns `400`; start again from the first page.
+Order: both sections follow `sort` exactly, and voices that tie are ordered by `id`, so the order stays the same from page to page. Voices the caller starred in the Studio carry `"favorite": true` but keep their place.
 
-Multilingual voices can also speak locales outside their primary `language` (see `secondaryLocaleList`), so for a language without many native voices, also try a multilingual voice with `settings.locale`.
+Paging: add `section`. While more voices match, the response has `nextCursor`; send it back as `cursor` with the same filters and sort. The last page has none. A malformed cursor, one from another sort, or one whose voice was removed returns `400`; start again from the first page.
+
+Every voice, cloned voices included, can speak every supported language through `settings.locale`, so for a language without many native voices, any voice you like works.
 
 ### Voice object
 
@@ -149,7 +150,6 @@ Multilingual voices can also speak locales outside their primary `language` (see
   "language": "en-US",
   "gender": "female",
   "labels": ["News", "Narrator", "Female", "Young Adult"],
-  "secondaryLocaleList": ["de-DE", "es-ES", "fr-FR", "ja-JP"],
   "styleList": [],
   "previewText": "Hey everyone, I'm Elyssia.",
   "previewUrl": "https://cdn.lazybird.app/.../preview.mp3",
@@ -162,17 +162,25 @@ Multilingual voices can also speak locales outside their primary `language` (see
 | Field | Notes |
 |---|---|
 | `id` | Pass as `voiceId`. Treat it as opaque: copy it from `GET /voices`, never build it from a name. Voices cloned before the unified voice list also accept their legacy `pv:` id. |
-| `displayName`, `description` | Name, plus the voice's role or use case |
+| `displayName`, `description` | Name, plus the character, show or use case for community voices |
 | `language` | Primary BCP-47 locale, e.g. `en-US`, `ja-JP` (150+ locales) |
+| `detectedLanguage` | Language heard in the voice's sample, as a bare code such as `vi`. `language` wins when both are set. |
+| `detectedLocale` | Accent heard in the voice's sample, such as `en-GB`, when it is clear |
 | `gender` | `female`, `male` or `unknown` |
-| `labels` | Tags such as `Narrator`, `Podcast`, `Female`, `Young Adult`. Ignore entries of the form `key=value`, which are internal metadata. |
-| `languageGroup` | `multilingual` for voices that speak many languages |
-| `secondaryLocaleList` | Other locales the voice can speak through `settings.locale` |
+| `labels` | Tags such as `Character`, `Celebrity`, `Narrator`, `Female`, `Child` |
 | `styleList` | Values accepted by `settings.style`. It's empty for most voices. |
-| `previewUrl` | MP3 sample to audition the voice |
-| `avatar` | Image URL. Relative paths are relative to `https://www.lazybird.app`. |
-| `scope` | `global` (built-in), `community` (published by a user) or `user` (your private voice) |
+| `previewText`, `previewUrl` | The line the preview speaks, and the MP3 to audition the voice |
+| `avatar` | Absolute image URL |
+| `scope` | `global` (built-in), `community` (published by a user) or `user` (a private clone) |
 | `published`, `mine` | Whether a user published the voice to the library, and whether the caller owns it |
+| `favorite` | `true` when the caller starred the voice in the Studio |
+| `official`, `featured` | Official Lazybird voices, and voices featured in the voice library |
+| `popular`, `trending` | The 10 most used voices of all time, and of the last 7 days |
+| `createdAt` | When the voice was added (ISO 8601) |
+| `ownerNickname`, `ownerUserId` | The creator's name and user ID, when the creator has a public profile |
+| `stats` | `usageCount` (all time) and `usageCount7d` (last 7 days) on library voices; `popularRank` and `trendingRank` for the top 10 |
+
+Fields without a value are left out. Every voice endpoint returns this shape.
 
 A published voice also has a public page: `https://www.lazybird.app/voices/{id}`.
 
@@ -198,18 +206,18 @@ Content-Type: application/json
 | `ssml` | string | One of | SSML document, see [SSML](#ssml) |
 | `settings` | object | No | See below |
 
-Send exactly one of `text` or `ssml`, and make it non-empty. The API does not reject empty input.
+Send exactly one of `text` and `ssml`, and not an empty one; anything else is a `400`. So is any field not listed here, in the body or in `settings`.
 
 Settings (all optional):
 
 | Field | Type | Notes |
 |---|---|---|
-| `speed` | number | `1` is normal. `0.8` is slower, `1.2` faster. |
-| `pitch` | number | `1` is the default |
-| `volume` | number | `1` is the default |
-| `style` | string | A value from the voice's `styleList`, e.g. `cheerful`, `sad`, `whispering`. Other values are silently ignored. |
-| `styleIntensity` | number | Strength of `style` |
-| `locale` | string | BCP-47 locale override for multilingual and cloned voices, e.g. `es-ES`, `ja-JP` |
+| `speed` | number | `1` is normal. `0.8` is slower, `1.2` faster. Must be greater than `0`. |
+| `pitch` | number | `1` is the default. Must be greater than `0`. |
+| `volume` | number | `1` is the default. `0` or greater (`0` is silent). |
+| `style` | string | A value from the voice's `styleList`, e.g. `cheerful`, `sad`, `whispering`. Other values are ignored, together with `styleIntensity`. |
+| `styleIntensity` | number | Strength of `style`. `1` is the default; the closest level the voice has is used. |
+| `locale` | string | Language and accent to speak in, for any voice, as a locale with a region, e.g. `es-ES`, `ja-JP`. A bare `es` is a `400`. |
 
 Success: `200`, `Content-Type: audio/mpeg`, body = MP3 bytes. Failure: a JSON error (see [Errors](#errors)). Always check the status before writing the body to a `.mp3` file.
 
@@ -382,7 +390,7 @@ curl -sS -X PATCH "https://api.lazybird.app/v2/voices/abc123" \
 | Field | Notes |
 |---|---|
 | `name` | Display name |
-| `description` | Short text on the voice card, such as the voice's role or use case |
+| `description` | Short text on the voice card, such as the character or show |
 | `labels` | Replaces all labels. Allowed: `Male`, `Female`, `Child`, `Young Adult`, `Adult`, `Elder`, `Narrator`, `Audiobook`, `Podcast`, `Character`, `Celebrity`, `Streamer`, `Advertising`, `Anime`, `ASMR`, `Customer Service`, `Documentary`, `Education`, `Horror`, `Kids`, `Meditation`, `News`, `Sleep`, `Storytelling`, `Trailer`, `Calm`, `Deep`, `Energetic` |
 | `language` | Locale such as `en-US` or `es-MX`. `""` clears it. Changing it clears the preview clip. |
 | `avatarUrl` | Public PNG, JPEG or WebP URL |
@@ -431,21 +439,10 @@ Errors are JSON:
 
 | Status | Meaning | What to do |
 |---|---|---|
-| `400` | Invalid input: unknown `voiceId`, unsupported SSML, missing or unknown field, wrong or expired login code | Fix the request using `error` and `details`. Don't retry unchanged. |
+| `400` | Invalid input: unknown `voiceId`, unsupported SSML, missing or unknown field, invalid `cursor`, wrong or expired login code | Fix the request using `error` and `details`. Don't retry unchanged. |
 | `401` | Missing or invalid API key | Check `X-API-Key`, or get a key with the email flow |
 | `422` | Plan limit: out of credits, no free voice slot, or feature not on the plan | `GET /me` to confirm, then tell the user. Offer `POST /checkout` to upgrade. |
 | `429` | Too many requests | Wait `Retry-After` seconds, then retry |
 | `5xx` | Server error | Retry with exponential backoff, up to 2–3 times |
 
 `GET /status` (no key) returns `{ "status": "ok" }` when the service is up.
-
-## Deprecated: /personal-voices
-
-`/personal-voices` still works but is deprecated. Its responses carry `Deprecation` and `Link: </v2/voices>; rel="successor-version"` headers. Don't use it in new code:
-
-| Deprecated | Use instead |
-|---|---|
-| `GET /personal-voices` | `GET /voices?section=myVoices` |
-| `POST /personal-voices` | `POST /voices` |
-| `DELETE /personal-voices/{voiceId}` | `DELETE /voices/{voiceId}` |
-| `POST /personal-voices/{voiceId}/generate-speech` | `POST /generate-speech` with `voiceId` |

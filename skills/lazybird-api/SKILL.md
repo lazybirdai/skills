@@ -4,7 +4,7 @@ description: Generate MP3 speech, voiceovers and narration from text or SSML wit
 license: MIT
 metadata:
   author: Lazybird
-  version: "1.3.0"
+  version: "1.3.1"
   homepage: https://www.lazybird.app
   source: https://github.com/lazybirdai/skills
   documentation: https://www.lazybird.app/docs/api-reference
@@ -37,17 +37,16 @@ curl -sS -X POST "https://api.lazybird.app/v2/generate-speech" \
 
 - Keep API keys server-side. Never put them in browser or mobile code, public repos or logs.
 - `/generate-speech` returns MP3 bytes, not JSON and not a URL. Check the status code before saving: errors come back as JSON.
-- Always send a non-empty `text` or `ssml` (not both). The API does not reject empty input.
+- Send exactly one of `text` and `ssml`, and not an empty one. Anything else is a `400`, and so is any field the API doesn't document, in the body or in `settings`.
 - SSML supports only `<speak>`, `<break time="500ms|2s"/>` (max 60s) and `<phoneme alphabet="ipa" ph="...">word</phoneme>`. Any other tag (`<prosody>`, `<emphasis>`, `<say-as>`, `<voice>`...) is a `400`. Use `settings` for speed, pitch and volume instead. Escape `&`, `<`, `>` in text, and escape quotes inside JSON.
-- `settings.style` only works with a value from the voice's `styleList` (most voices have none). Other values are silently ignored.
-- For another language, use a voice whose `language` matches, or a multilingual or cloned voice with `settings.locale` (e.g. `es-ES`).
+- `settings.style` only works with a value from the voice's `styleList` (most voices have none). Other values are ignored, together with `styleIntensity`.
+- Every voice, cloned voices included, can speak every supported language. For text in another language than the voice's `language`, pass `settings.locale` as a locale with a region (`es-ES`; a bare `es` is a `400`).
 - Treat voice `id`s as opaque: copy them from `GET /voices`, never build them from a name.
-- `/personal-voices` is deprecated. Use the `/voices` endpoints.
 - Before spending a lot of credits (long scripts, batches), check `GET /me` → `credits.remaining`.
 
 ## Finding a voice
 
-`GET /voices` is public (send the key to also get your own voices). It returns `{ myVoices, library, totals }`: your own voices and the public library, each up to `limit` (default and max 100), in the recommended order.
+`GET /voices` is public (send the key to also get your own voices). It returns `{ myVoices, library, totals }`: your voices (plus the clones teammates shared with your team) and the public library without those, each up to `limit` (default and max 100). Both lists follow `sort` exactly, ties by `id`; voices starred in the Studio carry `"favorite": true` but keep their place.
 
 ```bash
 API=https://api.lazybird.app/v2
@@ -55,19 +54,19 @@ API=https://api.lazybird.app/v2
 curl -sS "$API/voices?language=en-GB&gender=male" | jq -r '.library[] | [.id,.displayName] | @tsv'
 # Every English locale, female
 curl -sS "$API/voices?language=en&gender=female" | jq -r '.library[] | [.id,.displayName,.language] | @tsv'
-# Narrator voices
-curl -sS "$API/voices?labels=Narrator" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
+# Character / celebrity voices
+curl -sS "$API/voices?labels=Character" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
 # Search names, descriptions and labels
-curl -sS "$API/voices?q=calm" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
+curl -sS "$API/voices?q=narrator" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
 # Voices with speaking styles (on one page)
 curl -sS "$API/voices?language=en-US" | jq -r '.library[] | select((.styleList//[])|length>0) | [.id,(.styleList|join(","))] | @tsv'
 # Your own (cloned) voices
 curl -sS "$API/voices?section=myVoices" -H "X-API-Key: $LAZYBIRD_API_KEY" | jq -r '.myVoices[] | [.id,.displayName] | @tsv'
 ```
 
-Filters: `q` (search text), `language` (a locale like `ja-JP`, or `ja` for all its locales), `gender`, `labels` (comma-separated, all must match), `sort` (`recommended` default, `name`, `usage`, `recent`). To page, add `section=library` (or `myVoices`) and pass each response's `nextCursor` back as `cursor` with the same filters; the last page has none. Many voices can also speak the locales in their `secondaryLocaleList` through `settings.locale`.
+Filters: `q` (search words, all must match), `language` (a locale like `ja-JP`, or `ja` for all its locales), `gender`, `labels` (comma-separated, all must match), `sort` (`recommended` default, `trending` for most uses in the last 7 days, `usage`, `recent`, `name`). To page, add `section=library` (or `myVoices`) and pass each response's `nextCursor` back as `cursor` with the same filters and sort; the last page has none. A malformed cursor, one from another sort, or one whose voice was removed is a `400`: start again from the first page.
 
-Useful fields are `id`, `displayName`, `description`, `language` (primary locale), `gender` (`female`, `male` or `unknown`), `labels`, `styleList`, `secondaryLocaleList`, `previewUrl` (an MP3 to audition), and `scope` (`global` built-in, `community` published by users, `user` your own). Ignore labels of the form `key=value`, which are internal metadata. Multilingual voices have `languageGroup: "multilingual"`.
+Useful fields are `id`, `displayName`, `description`, `language` (primary locale), `gender` (`female`, `male` or `unknown`), `labels`, `styleList`, `previewUrl` (an MP3 to audition), `avatar` (an absolute image URL), `scope` (`global` built-in, `community` published by users, `user` a private clone), `mine` and `stats.usageCount7d`. Fields without a value are left out; the reference lists them all.
 
 ## Speech settings
 
@@ -96,7 +95,7 @@ All errors are JSON: `{ "error": "message", "name": "InputError", "details": {..
 
 | Status | Meaning | What to do |
 |---|---|---|
-| `400` | Invalid input (unknown voice, bad SSML, bad field, wrong login code) | Read `error` and `details`, fix the request. Don't retry unchanged. |
+| `400` | Invalid input (unknown voice, bad SSML, unknown or bad field, invalid cursor, wrong login code) | Read `error` and `details`, fix the request. Don't retry unchanged. |
 | `401` | Missing or invalid API key | Check the key, or get a new one with the email flow |
 | `422` | Plan limit: out of credits, no free voice slot, or feature not on plan | `GET /me`, then tell the user and offer `POST /checkout` |
 | `429` | Rate limited | Wait `Retry-After` seconds, then retry |
