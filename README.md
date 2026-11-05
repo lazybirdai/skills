@@ -6,12 +6,6 @@ Install the skill and your coding agent can turn text or SSML into MP3 voiceover
 
 ## Install
 
-Any agent (via [skills.sh](https://skills.sh)):
-
-```bash
-npx skills add lazybirdai/skills
-```
-
 Claude Code plugin:
 
 ```text
@@ -19,13 +13,11 @@ Claude Code plugin:
 /plugin install lazybird@lazybird
 ```
 
-Then set an API key, or let the agent get one for you by email code:
+The plugin adds the skill and connects the Lazybird MCP server. Run `/mcp` and sign in to your Lazybird account; no API key needed. New accounts start on the free plan (10,000 credits a month).
 
-```bash
-export LAZYBIRD_API_KEY=your-key-here
-```
+Other agents (Codex, Cursor and any agent that reads `SKILL.md` files): copy [`skills/lazybird-api`](./skills/lazybird-api) into your agent's skills folder and add the remote MCP server `https://api.lazybird.app/mcp`.
 
-New accounts start on the free plan (3,000 characters a month).
+To add text-to-speech to your own app, create an API key at https://www.lazybird.app/platform. The skill shows your agent how to call the REST API with it, with the key loaded from your app's config or secret store.
 
 ## Try it
 
@@ -39,17 +31,17 @@ New accounts start on the free plan (3,000 characters a month).
 
 | Skill | What it covers |
 |---|---|
-| [`lazybird-api`](./skills/lazybird-api) | API keys by email code, voice search, text and SSML speech generation, speed/pitch/volume/style settings, long scripts, voice cloning, voice design, plans and error handling. |
+| [`lazybird-api`](./skills/lazybird-api) | Voiceovers through the Lazybird MCP tools, and the REST API for your own code: voice search, text and SSML speech generation, speed/pitch/volume/style settings, long scripts, voice cloning, voice design, API keys, plans and error handling. |
 
 ## Data and privacy
 
-The skill and plugin store nothing themselves. When your agent uses them, it sends requests directly to `https://api.lazybird.app` over HTTPS, authenticated with your own `LAZYBIRD_API_KEY` (except the email-code login that issues it):
+The skill and plugin store nothing themselves. The plugin's MCP server is `https://api.lazybird.app/mcp`: you sign in to your Lazybird account with OAuth, and your agent keeps the sign-in token. Code the agent writes for your app calls `https://api.lazybird.app` with the API key your app loads. Either way, requests go directly to Lazybird over HTTPS and carry:
 
 - the text or SSML you ask it to speak, plus voice and audio settings
 - audio samples you provide for voice cloning, and descriptions you give for voice design
 - your email address, only if you ask the agent to get an API key for you by email code
 
-Generated audio comes back to your machine; voice previews and design samples download from `https://cdn.lazybird.app`. The skill contacts no other service. A plan upgrade returns a checkout link that you open yourself.
+Speech made through the MCP server is saved as an MP3 in your Lazybird account and shared as a `https://cdn.lazybird.app` link; REST calls return the audio directly. Voice previews and design samples also download from `https://cdn.lazybird.app`. The skill contacts no other service. A plan upgrade returns a checkout link that you open yourself.
 
 On the Lazybird side:
 

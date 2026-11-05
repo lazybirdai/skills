@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lazybird": {
+      "type": "http",
+      "url": "https://api.lazybird.app/mcp"
+    }
+  }
+}

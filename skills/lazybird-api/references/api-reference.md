@@ -32,7 +32,7 @@ X-API-Key: YOUR_API_KEY
 
 Fallback, only for clients that cannot set headers: `?api_key=YOUR_API_KEY`.
 
-Users create keys in Lazybird Studio settings, or get one through the email flow below. Keep keys on the server. Never put them in browser code, mobile apps, public repositories or logs.
+Users create keys at https://www.lazybird.app/platform (API Keys), or get one through the email flow below. Apps load the key from their own config or secret store. Keep keys on the server. Never put them in browser code, mobile apps, public repositories or logs.
 
 ## Get an API key by email
 
@@ -59,12 +59,13 @@ curl -sS -X POST "https://api.lazybird.app/v2/auth/verify-code" \
 - Returns `{ "apiKey", "userId", "email", "isNewAccount" }`. A new account starts on the free plan.
 - Codes expire after 10 minutes and work once. Five wrong attempts cancel the code.
 - Each verification creates a new key, and existing keys keep working.
+- Give the key to the user to store in their app's config or secret store. Don't write it into code.
 - `keyName` is optional, up to 100 characters.
 
 ## Account and upgrade
 
 ```bash
-curl -sS "https://api.lazybird.app/v2/me" -H "X-API-Key: $LAZYBIRD_API_KEY"
+curl -sS "https://api.lazybird.app/v2/me" -H "X-API-Key: YOUR_API_KEY"
 ```
 
 ```json
@@ -84,7 +85,7 @@ Upgrade:
 
 ```bash
 curl -sS -X POST "https://api.lazybird.app/v2/checkout" \
-  -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" \
   -d '{"plan":"pro","interval":"monthly"}'
 ```
 
@@ -94,7 +95,7 @@ Buy extra credits once, with or without a plan:
 
 ```bash
 curl -sS -X POST "https://api.lazybird.app/v2/checkout" \
-  -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" \
   -d '{"creditsUsd":10}'
 ```
 
@@ -131,7 +132,7 @@ API=https://api.lazybird.app/v2
 curl -sS "$API/voices?language=en-US&gender=female" | jq -r '.library[] | [.id,.displayName,(.styleList//[]|join(","))] | @tsv'
 curl -sS "$API/voices?labels=Character" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
 curl -sS "$API/voices?q=narrator" | jq -r '.library[] | [.id,.displayName,.description] | @tsv'
-curl -sS "$API/voices?section=myVoices" -H "X-API-Key: $LAZYBIRD_API_KEY" | jq -r '.myVoices[] | [.id,.displayName] | @tsv'
+curl -sS "$API/voices?section=myVoices" -H "X-API-Key: YOUR_API_KEY" | jq -r '.myVoices[] | [.id,.displayName] | @tsv'
 ```
 
 Order: both sections follow `sort` exactly, and voices that tie are ordered by `id`, so the order stays the same from page to page. Voices the caller starred in the Studio carry `"favorite": true` but keep their place.
@@ -223,7 +224,7 @@ Success: `200`, `Content-Type: audio/mpeg`, body = MP3 bytes. Failure: a JSON er
 
 ```bash
 curl -sS -X POST "https://api.lazybird.app/v2/generate-speech" \
-  -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" \
   --max-time 300 --fail-with-body -o speech.mp3 \
   --data '{
     "voiceId": "tgJ2Hes6DauwTg8kFrRPLN",
@@ -260,23 +261,24 @@ Building the JSON with a library (`json.dumps`, `JSON.stringify`) avoids quoting
 Python (standard library only):
 
 ```python
-import json, os, urllib.request
+import json, urllib.request
 
-def lazybird_tts(text: str, voice_id: str, out_path: str, settings: dict | None = None) -> None:
+# api_key: load it from your app's config or secret store; never hard-code it.
+def lazybird_tts(api_key: str, text: str, voice_id: str, out_path: str, settings: dict | None = None) -> None:
     body = {"voiceId": voice_id, "text": text}
     if settings:
         body["settings"] = settings
     req = urllib.request.Request(
         "https://api.lazybird.app/v2/generate-speech",
         data=json.dumps(body).encode(),
-        headers={"X-API-Key": os.environ["LAZYBIRD_API_KEY"], "Content-Type": "application/json"},
+        headers={"X-API-Key": api_key, "Content-Type": "application/json"},
         method="POST",
     )
     # urlopen raises HTTPError on 4xx/5xx; e.read() holds the JSON error
     with urllib.request.urlopen(req, timeout=300) as resp, open(out_path, "wb") as f:
         f.write(resp.read())
 
-lazybird_tts("Hello from Lazybird.", "tgJ2Hes6DauwTg8kFrRPLN", "hello.mp3")
+lazybird_tts(api_key, "Hello from Lazybird.", "tgJ2Hes6DauwTg8kFrRPLN", "hello.mp3")
 ```
 
 Node.js 18+:
@@ -284,10 +286,11 @@ Node.js 18+:
 ```js
 import { writeFile } from "node:fs/promises";
 
-async function lazybirdTts(text, voiceId, outPath, settings) {
+// apiKey: load it from your app's config or secret store; never hard-code it.
+async function lazybirdTts(apiKey, text, voiceId, outPath, settings) {
   const res = await fetch("https://api.lazybird.app/v2/generate-speech", {
     method: "POST",
-    headers: { "X-API-Key": process.env.LAZYBIRD_API_KEY, "Content-Type": "application/json" },
+    headers: { "X-API-Key": apiKey, "Content-Type": "application/json" },
     body: JSON.stringify({ voiceId, text, settings }),
     signal: AbortSignal.timeout(300_000),
   });
@@ -295,7 +298,7 @@ async function lazybirdTts(text, voiceId, outPath, settings) {
   await writeFile(outPath, Buffer.from(await res.arrayBuffer()));
 }
 
-await lazybirdTts("Hello from Lazybird.", "tgJ2Hes6DauwTg8kFrRPLN", "hello.mp3");
+await lazybirdTts(apiKey, "Hello from Lazybird.", "tgJ2Hes6DauwTg8kFrRPLN", "hello.mp3");
 ```
 
 For browser apps, call your own backend endpoint, which calls Lazybird with the key. Never call Lazybird from the browser with the key.
@@ -327,7 +330,7 @@ Upload a file as multipart (`name` and `sample`, MP3, WAV or OGG, up to 20 MB):
 
 ```bash
 curl -sS -X POST "https://api.lazybird.app/v2/voices" \
-  -H "X-API-Key: $LAZYBIRD_API_KEY" \
+  -H "X-API-Key: YOUR_API_KEY" \
   -F "name=Narrator" -F "rightsConfirmed=true" -F "sample=@sample.wav"
 ```
 
@@ -335,7 +338,7 @@ Or send JSON with a publicly reachable `sampleUrl`:
 
 ```bash
 curl -sS -X POST "https://api.lazybird.app/v2/voices" \
-  -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" \
   -d '{"name":"Narrator","sampleUrl":"https://example.com/sample.wav","rightsConfirmed":true}'
 ```
 
@@ -362,7 +365,7 @@ Generates a brand-new voice from a description of who is speaking, and returns a
 
 ```bash
 curl -sS -X POST "https://api.lazybird.app/v2/voices/design" \
-  -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" \
   -d '{"description":"A calm, deep-voiced middle-aged British man, warm documentary narrator","text":"Deep in the forest, the old oak has stood for three hundred years."}'
 ```
 
@@ -383,7 +386,7 @@ Edit: send only the fields to change.
 
 ```bash
 curl -sS -X PATCH "https://api.lazybird.app/v2/voices/abc123" \
-  -H "X-API-Key: $LAZYBIRD_API_KEY" -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" \
   -d '{"name":"Narrator","description":"Deep, calm narrator","labels":["Narrator","Male"],"language":"en-US","avatarUrl":"https://example.com/avatar.png"}'
 ```
 
@@ -440,7 +443,7 @@ Errors are JSON:
 | Status | Meaning | What to do |
 |---|---|---|
 | `400` | Invalid input: unknown `voiceId`, unsupported SSML, missing or unknown field, invalid `cursor`, wrong or expired login code | Fix the request using `error` and `details`. Don't retry unchanged. |
-| `401` | Missing or invalid API key | Check `X-API-Key`, or get a key with the email flow |
+| `401` | Missing or invalid API key | Check the key the app sends in `X-API-Key`, or create a new one |
 | `422` | Plan limit: out of credits, no free voice slot, or feature not on the plan | `GET /me` to confirm, then tell the user. Offer `POST /checkout` to upgrade. |
 | `429` | Too many requests | Wait `Retry-After` seconds, then retry |
 | `5xx` | Server error | Retry with exponential backoff, up to 2–3 times |
