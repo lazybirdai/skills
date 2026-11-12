@@ -5,14 +5,14 @@
     "url": "https://www.lazybird.app"
   },
   "metadata": {
-    "description": "Official Lazybird plugins: AI text-to-speech, voice cloning and voice design for agents."
+    "description": "Official Lazybird plugins: AI speech, voiceovers and video, voice cloning and voice design for agents."
   },
   "plugins": [
     {
       "name": "lazybird",
       "source": "./",
-      "description": "Text-to-speech for AI agents: turn text or SSML into MP3 voiceovers with 500+ voices in 150+ locales, clone a voice from a sample, or design one from a description. Lazybird Speech API.",
-      "version": "1.4.0",
+      "description": "Speech, voiceovers and video for AI agents: turn text or SSML into natural speech, build multi-voice voiceovers and videos with stock footage, music and on-screen text, export MP4, MP3 and SRT subtitles, share by link, clone a voice from a sample, or design one from a description. Lazybird API.",
+      "version": "2.0.0",
       "homepage": "https://www.lazybird.app",
       "repository": "https://github.com/lazybirdai/skills",
       "license": "MIT",
@@ -25,10 +25,15 @@
         "narration",
         "audio",
         "speech",
+        "video",
+        "video-generation",
+        "subtitles",
+        "podcast",
         "voice-cloning",
         "voice-design",
         "ssml",
-        "mp3"
+        "mp3",
+        "mp4"
       ],
       "category": "development"
     }

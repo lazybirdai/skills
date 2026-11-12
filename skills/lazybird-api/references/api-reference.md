@@ -1,6 +1,6 @@
 # Lazybird API Reference
 
-The Lazybird Speech API turns text or SSML into MP3 speech. It also clones voices from audio samples, designs voices from text descriptions, and manages and publishes your voices.
+The Lazybird API turns text or SSML into MP3 speech, and builds voiceover and video projects that it renders to video, audio and subtitle files. It also clones voices from audio samples, designs voices from text descriptions, and manages and publishes your voices.
 
 - Base URL: `https://api.lazybird.app/v2` (`/v1` is frozen for existing integrations: it keeps the older voice object, one unpaged list of the first 1,000 library voices and the deprecated `/personal-voices` endpoints. Use `/v2` in new code.)
 - OpenAPI 3.1 spec: https://www.lazybird.app/openapi.json
@@ -20,6 +20,7 @@ The Lazybird Speech API turns text or SSML into MP3 speech. It also clones voice
 - [Clone a voice](#clone-a-voice)
 - [Design a voice](#design-a-voice)
 - [Edit, publish, preview and delete a voice](#edit-publish-preview-and-delete-a-voice)
+- [Projects and video](#projects-and-video)
 - [Errors](#errors)
 
 ## Authentication
@@ -113,7 +114,7 @@ GET /voices
 ```
 
 - Public: no key needed. With a key, your own voices come back too.
-- Returns `{ "myVoices": [...], "library": [...], "totals": { "myVoices": 0, "library": 580 } }`: your voices (private clones, voices you published and the clones teammates shared with your team; your own carry `"mine": true`) and the public library without the voices already in `myVoices`, each up to `limit` voices. `totals` counts the matching voices in each section.
+- Returns `{ "myVoices": [...], "library": [...], "totals": { "myVoices": 0, "library": 580 } }`: your voices (private clones, voices you published and the clones teammates shared with your team; your own carry `"mine": true`) and the public library (your published voices included), each up to `limit` voices. `totals` counts the matching voices in each section.
 - Filter and search on the server instead of downloading the library:
 
 | Parameter | Notes |
@@ -164,7 +165,7 @@ Every voice, cloned voices included, can speak every supported language through 
 |---|---|
 | `id` | Pass as `voiceId`. Treat it as opaque: copy it from `GET /voices`, never build it from a name. Voices cloned before the unified voice list also accept their legacy `pv:` id. |
 | `displayName`, `description` | Name, plus the character, show or use case for community voices |
-| `language` | Primary BCP-47 locale, e.g. `en-US`, `ja-JP` (150+ locales) |
+| `language` | Primary BCP-47 locale, e.g. `en-US`, `ja-JP` |
 | `detectedLanguage` | Language heard in the voice's sample, as a bare code such as `vi`. `language` wins when both are set. |
 | `detectedLocale` | Accent heard in the voice's sample, such as `en-GB`, when it is clear |
 | `gender` | `female`, `male` or `unknown` |
@@ -206,6 +207,7 @@ Content-Type: application/json
 | `text` | string | One of | Plain text. Special characters are escaped for you. |
 | `ssml` | string | One of | SSML document, see [SSML](#ssml) |
 | `settings` | object | No | See below |
+| `phone` | string | No | `pcm` or `mulaw`: an 8 kHz mono WAV for phone systems (voicemail, phone menus) instead of an MP3. `mulaw` is G.711 µ-law. |
 
 Send exactly one of `text` and `ssml`, and not an empty one; anything else is a `400`. So is any field not listed here, in the body or in `settings`.
 
@@ -219,8 +221,10 @@ Settings (all optional):
 | `style` | string | A value from the voice's `styleList`, e.g. `cheerful`, `sad`, `whispering`. Other values are ignored, together with `styleIntensity`. |
 | `styleIntensity` | number | Strength of `style`. `1` is the default; the closest level the voice has is used. |
 | `locale` | string | Language and accent to speak in, for any voice, as a locale with a region, e.g. `es-ES`, `ja-JP`. A bare `es` is a `400`. |
+| `instruction` | string | How the speech is acted, in a few words, e.g. `whispering, nervous`. Never spoken. Up to 200 characters; brackets are dropped, and one without words is a `400`. |
+| `effect` | string | A sound effect on the finished speech: `robot`, `deep`, `monster`, `echo` (a large hall), `radio` (a walkie-talkie) or `phone` (a phone call). Leave it out for plain speech. |
 
-Success: `200`, `Content-Type: audio/mpeg`, body = MP3 bytes. Failure: a JSON error (see [Errors](#errors)). Always check the status before writing the body to a `.mp3` file.
+Success: `200`, `Content-Type: audio/mpeg`, body = MP3 bytes; with `phone`, `Content-Type: audio/wav` and WAV bytes. Failure: a JSON error (see [Errors](#errors)). Always check the status before writing the body to a `.mp3` file.
 
 ```bash
 curl -sS -X POST "https://api.lazybird.app/v2/generate-speech" \
@@ -242,8 +246,9 @@ Only a small, strict subset is accepted. Anything else returns `400 Invalid SSML
 | `<speak>` | Required root element |
 | `<break time="..."/>` | Must be empty. `time` is a number followed by `ms` or `s`, greater than 0 and at most `60s`. Without `time` it defaults to 1s. No other attributes. |
 | `<phoneme alphabet="ipa" ph="...">word</phoneme>` | `alphabet` must be `ipa`, and `ph` must be non-empty. The content must be plain text and non-empty. |
+| `<sub alias="...">word</sub>` | Says `alias` in place of the word. `alias` must be non-empty, and no other attributes. The content must be plain text and non-empty. |
 
-`<prosody>`, `<emphasis>`, `<say-as>`, `<voice>`, `<audio>`, `<sub>`, `<p>`, `<s>` and `<lang>` are **not** supported. For rate, pitch and volume, use `settings`.
+`<prosody>`, `<emphasis>`, `<say-as>`, `<voice>`, `<audio>`, `<p>`, `<s>` and `<lang>` are **not** supported. For rate, pitch and volume, use `settings`.
 
 The document must be valid XML: escape `&` as `&amp;`, and `<` and `>` in text as `&lt;` and `&gt;`. Inside JSON, escape the double quotes around attributes:
 
@@ -432,6 +437,128 @@ DELETE /voices/{voiceId}
 
 Returns `{ "deleted": true }` and frees the voice slot. The voice's processed sample, preview clip and avatar are deleted too.
 
+## Projects and video
+
+A project is a voiceover script, optionally on a video canvas with pictures, video clips, text, shapes, music and animations. It is what the Lazybird Studio edits, so a project made through the API opens there too (`projectUrl`). Speech uses the same credits as `/generate-speech`.
+
+The flow: `POST /projects` → `PATCH /projects/{projectId}` with changes → `POST /projects/{projectId}/speech` → `POST /projects/{projectId}/exports`, poll the export → `POST /projects/{projectId}/share`.
+
+### Create, list, read, duplicate, delete
+
+```http
+POST /projects                          {"name": "Product launch ad"}   → 201 { project }
+GET /projects?q=&limit=&cursor=          → { projects, total, nextCursor? }
+GET /projects/{projectId}                → the whole project
+POST /projects/{projectId}/duplicate     {"name"?}                       → 201 { project }
+DELETE /projects/{projectId}
+```
+
+- A project summary has `id`, `name`, `kind` (`audio`, or `video` once it has a picture), `voiceIds`, `firstLine`, `version`, `thumbnailUrl`, `projectUrl`, `createdAt`, `updatedAt`. `limit` is 1–100 (default 20); pass `nextCursor` back as `cursor`.
+- A new project has one empty voiceover block.
+- `GET /projects/{projectId}` returns the voiceover in order (each block's `id`, `start`, `duration`, voice, settings, pauses, `text` and `speech` state), the voices it uses, the canvas, tracks, timeline blocks (elements, video, images, audio), animations, styles, variables and uploads. `speech` is `has speech`, `speech being made`, `needs speech`, `speech failed` or `empty`. When speech stopped because the account ran out of credits, the read has `outOfCredits` with a `message` and an `upgradeUrl`.
+
+### Change a project
+
+```http
+GET /projects/change-schema     (no key needed)
+PATCH /projects/{projectId}     {"changes": [ ... ]}
+```
+
+`GET /projects/change-schema` returns `{ description, changes, guide }`: the JSON Schema of every change and a guide to building the picture and sound (the shape of every block, animation, canvas, style, font and variable, with examples and timing craft). Read the guide before the first `add_block`.
+
+`changes` is a list of up to 200, applied in order, all or none:
+
+| Actions | What they change |
+|---|---|
+| `update_project` | `project`: `name`, details, master volume, `autoGenerate` (make speech after each edit) |
+| `insert_voiceover`, `update_voiceover`, `move_voiceover`, `delete_voiceover` | Voiceover blocks (`text` up to 5,000 characters, or `ssml`; `voiceId`; `voiceSettings` `speed`/`pitch` 0.5–1.5, `volume`, `style`; pauses before and after) and pauses (`pause` in seconds). Place with `after` or `before`, else at the end. |
+| `add_block`, `update_block`, `delete_block` | Text, shapes, SVG, images, video clips and audio on the timeline |
+| `add_animation`, `update_animation`, `delete_animation` | Animations and transitions |
+| `set_canvas` | `width`, `height` (even, 16–4096), `fps` (24, 25, 30, 60), `background` |
+| `set_style`, `delete_style`, `set_font`, `delete_font`, `set_variable`, `delete_variable` | Style classes, uploaded fonts and editable variables |
+
+Give a new item a `ref`; later changes in the same request use the ref as its id. A two-voice dialogue:
+
+```json
+{"changes": [
+  {"action": "insert_voiceover", "ref": "q", "text": "Ever wished your videos could talk?", "voiceId": "VOICE_A"},
+  {"action": "insert_voiceover", "ref": "a", "after": "q", "text": "Now they can, in any voice you like.", "voiceId": "VOICE_B"},
+  {"action": "insert_voiceover", "after": "a", "pause": 0.4}
+]}
+```
+
+The response has `changed`, a `summary`, `ids` (each ref's new id), `speechBlockIds` (speech already being made, with `autoGenerate`) and `needSpeechBlockIds`. Blocks whose text, voice or settings change need speech again.
+
+### Make speech
+
+```http
+POST /projects/{projectId}/speech   {"blockIds"?: [...], "regenerate"?: true}   → 202 { requested }
+```
+
+Makes speech for every block that needs it, or only `blockIds`; `regenerate: true` also redoes blocks that have speech. Poll `GET /projects/{projectId}` every few seconds until no block is `speech being made`. Then each block has its `start` and `duration`: time the picture to them.
+
+### Render (export)
+
+```http
+POST /projects/{projectId}/exports   {"type": "video", "format": "mp4"}   → 202 { export }
+GET /projects/{projectId}/exports                                         → { exports }
+GET /projects/{projectId}/exports/{exportId}                              → { export }
+```
+
+| `type` | `format` | Options |
+|---|---|---|
+| `video` | `mp4`, `mov` | `width` and `height` together (even, 16–4096) to render at another size; the canvas's by default |
+| `audio` | `mp3`, `wav`, `ogg` | `phone` (`pcm` or `mulaw`) with `wav`: an 8 kHz mono WAV for phone systems |
+| `transcript` | `txt`, `docx`, `srt`, `vtt` | `srt` and `vtt` are timed subtitles |
+
+- `allowMissingSpeech: true` exports even though some blocks have no speech (they are silent). Without it, every block needs speech, and a video needs a picture: otherwise the export is refused with a message saying what's missing.
+- An export has `id`, `projectId`, `type`, `format`, `resolution`, `phone`, `status`, `url`, `projectVersion`, `createdAt`, `updatedAt`. `status` is `exporting`, then `completed` (with `url`) or `failed`. Files are kept for 30 days, then `expired` without a `url`. `projectVersion` is the project `version` it rendered.
+- Each account renders a few exports at a time and a limited length of output a day, counted in seconds of the rendered file, with video counted apart from audio; a transcript counts only toward exports at a time. Past either: `429` with `Retry-After` (also `retryAfterSeconds` in the body). Wait; don't retry in a loop.
+
+### Upload media
+
+```http
+POST /projects/{projectId}/uploads/from-url        {"url", "name"}                            → 201 { upload }
+POST /projects/{projectId}/uploads                 {"fileName", "type", "size"}               → 201 { upload, uploadUrl, uploadFields }
+POST /projects/{projectId}/uploads/{uploadId}/finalize                                        → { upload }
+GET /projects/{projectId}/uploads                                                             → { uploads }
+```
+
+- `from-url` copies a stock result or another Lazybird file (`cdn.lazybird.app`, Pexels or Pixabay URLs). Other sites are refused (`400 Unsupported asset URL`): download the file and upload it.
+- A local file: `POST .../uploads` with `type` `image`, `video` or `audio` and `size` in bytes. Then POST a multipart form to `uploadUrl`, without the API key: each of `uploadFields` as a field, in order, then the file as `file`. The form works for an hour. Then `finalize`.
+
+```bash
+# uploadFields → one -F per field, in order; the file goes last
+curl -X POST "$UPLOAD_URL" -F "key=..." -F "Content-Type=video/mp4" -F "Policy=..." \
+  -F "X-Amz-Signature=..." ... -F "file=@clip.mp4"
+```
+
+- A file is up to 100 MB, and uploads share the plan's storage; on the free plan they are kept for 30 days.
+- An upload has `id`, `name`, `type`, `url`, `status`, `thumbnailUrl`, `duration` (video, audio), `size`. Use its `url` in `add_block`.
+
+### Stock media and music
+
+```http
+GET /stock/images?q=&page=      → { results }
+GET /stock/videos?q=&page=      → { results }
+GET /music?q=&instrumental=&minDuration=&maxDuration=&page=&limit=   → { tracks }
+```
+
+- Each stock result has its preview and a `block` ready for `add_block`: give it a `startTime` (and a `duration`). Its URL can be used directly, or copied into the project with `from-url`.
+- Music `limit` is 1–25 (default 10); durations are in seconds. Each track has `title`, `artist`, `duration` and `cdnUrl`: use it as the audio block's URL, with `intrinsicDuration` set to the track's length. Keep music well under the voice.
+
+### Share
+
+```http
+POST /projects/{projectId}/share   → { url }
+```
+
+A link anyone can open to watch or listen, the same each time. It plays the latest MP4 (or MP3 for a voiceover) while that export matches the project, otherwise a live preview: export after the last change to share the finished file.
+
+### Team API keys
+
+A team API key calls only what its scopes allow: `projects:read`, `projects:write` and `exports` for projects, next to `speech`, `voices:read` and `voices:write`. Personal keys can call everything.
+
 ## Errors
 
 Errors are JSON:
@@ -444,8 +571,8 @@ Errors are JSON:
 |---|---|---|
 | `400` | Invalid input: unknown `voiceId`, unsupported SSML, missing or unknown field, invalid `cursor`, wrong or expired login code | Fix the request using `error` and `details`. Don't retry unchanged. |
 | `401` | Missing or invalid API key | Check the key the app sends in `X-API-Key`, or create a new one |
-| `422` | Plan limit: out of credits, no free voice slot, or feature not on the plan | `GET /me` to confirm, then tell the user. Offer `POST /checkout` to upgrade. |
-| `429` | Too many requests | Wait `Retry-After` seconds, then retry |
+| `422` | Plan limit: out of credits, no free voice slot, storage full, or feature not on the plan | `GET /me` to confirm, then tell the user. Give them `upgradeUrl` when the body has one, or offer `POST /checkout`. |
+| `429` | Too many requests, too many exports at once, or today's render length used up | Wait `Retry-After` seconds, then retry |
 | `5xx` | Server error | Retry with exponential backoff, up to 2–3 times |
 
 `GET /status` (no key) returns `{ "status": "ok" }` when the service is up.
