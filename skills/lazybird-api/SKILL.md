@@ -156,7 +156,7 @@ The same project flow as the MCP tools, as REST routes (the reference has every 
 
 - `GET /me` → `{ plan: { tier, isPaid }, credits: { used, limit, remaining, resetsAt } }`. The free plan has 10,000 credits a month and no commercial rights. Paid plans: `creator`, `pro`, `max`.
 - `POST /checkout {"plan":"creator|pro|max","interval":"monthly|yearly"}` → `{ checkoutUrl }`. Give the URL to the user to pay in a browser. The same key gets the new plan once payment completes.
-- `POST /checkout {"creditsUsd":10}` → one-time extra credits that never expire, bought in whole dollars ($10–$1,000): $30 per 1M with no plan, $20 on Creator, $5 on Pro/Max.
+- `POST /checkout {"creditsUsd":10}` → one-time extra credits that never expire, bought in whole dollars ($10–$1,000). They top up a plan, so the account needs one: $20 per 1M on Creator, $5 on Pro/Max.
 
 ### Errors
 
