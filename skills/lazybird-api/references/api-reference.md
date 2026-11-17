@@ -100,7 +100,7 @@ curl -sS -X POST "https://api.lazybird.app/v2/checkout" \
   -d '{"creditsUsd":10}'
 ```
 
-- Price per 1M credits: $30 with no plan, $20 on Creator, $5 on Pro or Max. Pay any whole-dollar amount from $10 to $1,000.
+- Extra credits need a plan. Price per 1M credits: $20 on Creator, $5 on Pro or Max. Pay any whole-dollar amount from $10 to $1,000.
 - Pay-as-you-go credits without a plan are for personal use; plans include commercial rights.
 - Give the URL to the user to pay in a browser. The plan applies as soon as payment completes, and the same key keeps working.
 - Pricing: https://www.lazybird.app/pricing
