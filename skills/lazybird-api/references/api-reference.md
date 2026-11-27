@@ -74,12 +74,12 @@ curl -sS "https://api.lazybird.app/v2/me" -H "X-API-Key: YOUR_API_KEY"
   "userId": "abc",
   "email": "you@example.com",
   "plan": { "tier": "free", "name": "Free", "isPaid": false },
-  "credits": { "used": 1200, "limit": 10000, "extraCredits": 0, "remaining": 8800, "resetsAt": "2026-11-01T00:00:00.000Z" }
+  "credits": { "used": 1200, "limit": 3000, "extraCredits": 0, "remaining": 1800 }
 }
 ```
 
 - `tier` is `free`, `creator`, `pro`, `max`, or `legacy` for older plans.
-- The free plan has 10,000 credits a month and no commercial usage rights. Paid plans include commercial rights.
+- The free plan has 3,000 credits to start, granted once at sign-up and never refilled (so `credits` has no `resetsAt`), and no commercial usage rights. Paid plans refill each month and include commercial rights.
 - 1 credit = 1 character. Monthly plan credits are used first, then purchased `extraCredits`, which never expire.
 
 Upgrade:

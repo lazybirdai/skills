@@ -13,7 +13,7 @@ Claude Code plugin:
 /plugin install lazybird@lazybird
 ```
 
-The plugin adds the skill and connects the Lazybird MCP server. Run `/mcp` and sign in to your Lazybird account; no API key needed. New accounts start on the free plan (10,000 credits a month).
+The plugin adds the skill and connects the Lazybird MCP server. Run `/mcp` and sign in to your Lazybird account; no API key needed. New accounts start on the free plan (3,000 credits to start).
 
 Other agents (Codex, Cursor and any agent that reads `SKILL.md` files): copy [`skills/lazybird-api`](./skills/lazybird-api) into your agent's skills folder and add the remote MCP server `https://api.lazybird.app/mcp`.
 
