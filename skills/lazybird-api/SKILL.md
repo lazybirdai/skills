@@ -12,7 +12,7 @@ metadata:
 
 # Lazybird speech, voiceovers and video
 
-Turn text into natural speech, build voiceover and video projects and export them, clone a voice from a short sample, or design one from a description. One credit = one character of spoken text.
+Turn text into realistic speech, build voiceover and video projects and export them, clone a voice from a short sample, or design one from a description. One credit = one character of spoken text.
 
 Pick the way in by what the user wants:
 

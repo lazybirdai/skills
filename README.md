@@ -2,7 +2,7 @@
 
 Official agent skills for [Lazybird](https://www.lazybird.app): speech, voiceovers and video for AI agents.
 
-Install the skill and your agent can turn text or SSML into natural speech, build multi-voice voiceovers and videos with stock footage, music and on-screen text, export MP4 video, MP3 audio and SRT subtitles, share a project by link, clone a voice from a short sample, or design a new voice from a description, all through the [Lazybird API](https://www.lazybird.app/docs/api-reference). It works with Claude Code, Codex, Cursor and any agent that reads `SKILL.md` files.
+Install the skill and your agent can turn text or SSML into realistic speech, build multi-voice voiceovers and videos with stock footage, music and on-screen text, export MP4 video, MP3 audio and SRT subtitles, share a project by link, clone a voice from a short sample, or design a new voice from a description, all through the [Lazybird API](https://www.lazybird.app/docs/api-reference). It works with Claude Code, Codex, Cursor and any agent that reads `SKILL.md` files.
 
 ## Install
 
